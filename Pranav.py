@@ -6,11 +6,11 @@ import numpy
 import argparse
 
 class Atom():
-    def __init__(self,id,AtomName,Coordinates,Occupancy,bfactor,Element,Charge,ResidueNumber):
+    def __init__(self,id,AtomName,Coordinates,Occupancy,bfactor,Element,Charge,parent):
         self.id=id
         self.AtomName=AtomName
         self.AlternateLocationIndicator=None #remove it later
-        self.ResidueNumber=ResidueNumber
+        self.__parent=parent
         self.Chain=None
         self.Coordinates=Coordinates
         self.Occupancy=Occupancy
@@ -18,40 +18,94 @@ class Atom():
         self.SegmentIdentifier=None
         self.Element=Element
 
+    def GetParent(self):
+        return self.__parent
+
+    def CalcDist(self,another_atom):
+        return numpy.linalg.norm(self.Coordinates-another_atom.Coordinates)
+
+    
+
 class Residue():
-    def __init__(self,id,name,ChainID):
-        self.id=id
-        self.name=name
-        self.ChainID=ChainID
-        self.Atoms=None
+    def __init__(self,id,name,parent):
+        self.__id=id
+        self.__name=name
+        self.__parent=parent
+        self.__Atoms=None
     
     def __setitem__(self,id,Atom):
         try:
-            self.Atoms[id]=Atom
+            self.__Atoms[id]=Atom
         except:
-            self.Atoms={}
-            self.Atoms[id]=Atom
+            self.__Atoms={}
+            self.__Atoms[id]=Atom
+    
+    def GetID(self):
+        return self.__id
+    
+    def GetName(self):
+        return self.__name
+
+    def GetParent(self):
+        return self.__parent
     
     def GetAtoms(self):
-        return self.Atoms.values()
+        for i in sorted(self.__Atoms.keys()):yield self.__Atoms[i]
+    
+    def GetCAlpha(self):
+        return [i for i in self.GetAtoms() if i.AtomName=='CA'][0]
+    
+    def GetCenterofGravity(self):
+        '''
+        NOTE: Yet to add the atomic masses.
+        '''
+        atoms=self.GetAtoms()
+        AtomicMass=1
+        XYZ_M=[0,0,0]
+        MassofAA=0
+        for i in atoms:
+            XYZ_M[0]+=i.Coordinates[0]*AtomicMass
+            XYZ_M[1]+=i.Coordinates[1]*AtomicMass
+            XYZ_M[2]+=i.Coordinates[2]*AtomicMass
+            MassofAA=MassofAA+AtomicMass
+        return numpy.array([i/MassofAA for i in XYZ_M])
+    
+    def GetTipofAA(self):
+        CAlpha=self.GetCAlpha()
+        resname=self.GetName()
+        TipofAA=None
+        if(resname=='ALA' or resname=='GLY'):
+            TipofAA=CAlpha
+        else:
+            MaxDistance=0
+            for i in self.GetAtoms():
+                tempdistance=CAlpha.CalcDist(i)
+                if(tempdistance>MaxDistance):
+                    MaxDistance=tempdistance
+                    TipofAA=i
+        return TipofAA
+
 
 class Chain():
     def __init__(self,id):
-        self.id=id
-        self.Residues=None
+        self.__id=id
+        self.__Residues=None
     
     def __setitem__(self,ResidueNumber,Residue):
         try:
-            self.Residues[ResidueNumber]=Residue
+            self.__Residues[ResidueNumber]=Residue
         except:
-            self.Residues={}
-            self.Residues[ResidueNumber]=Residue
+            self.__Residues={}
+            self.__Residues[ResidueNumber]=Residue
 
     def __getitem__(self,ResidueNumber):
-        return self.Residues[ResidueNumber]
+        return self.__Residues[ResidueNumber]
+    
+    def GetID(self):
+        return self.__id
     
     def GetResidues(self):
-        return self.Residues.values()
+        for i in sorted(self.__Residues.keys()):yield self.__Residues[i]
 
 class Model():
     def __init__(self,id,AllAtoms,AllResidues,AllChains):
@@ -64,13 +118,13 @@ class Model():
         return self.__AllChains[ChainID]
     
     def GetAllChains(self):
-        return self.__AllChains.values()
+        for i in sorted(self.__AllChains.keys()):yield self.__AllChains[i]
 
     def GetAllResidues(self):
-        return self.__AllResidues.values()
+        for i in sorted(self.__AllResidues.keys()):yield self.__AllResidues[i]
     
     def GetAllAtoms(self):
-        return self.__AllAtoms.values()
+        for i in sorted(self.__AllAtoms.keys()):yield self.__AllAtoms[i]
     
     def GetChain(self,ChainID):
         return self.__AllChains[ChainID]
@@ -99,8 +153,6 @@ def LoadPDB(filename):
         AllAtoms={}
         AllResidues={}
         AllChains={}
-        AtomsResidueMap={}
-        ResidueChainMap={}
 
         lines=frame.split('\n')   
         for _ in lines:
@@ -113,15 +165,10 @@ def LoadPDB(filename):
                 #Residue Defined
                 ResidueNumber=int(_[22:26].strip())
                 ResidueName=_[17:20]
-                if(ResidueNumber not in AllResidues.keys()):AllResidues[ResidueNumber]=Residue(ResidueNumber,ResidueName,ChainID)
+                if(ResidueNumber not in AllResidues.keys()):AllResidues[ResidueNumber]=Residue(ResidueNumber,ResidueName,AllChains[ChainID])
 
                 #Residue Added to the chain
                 AllChains[ChainID].__setitem__(ResidueNumber,AllResidues[ResidueNumber])
-                try:
-                    if(ResidueNumber not in ResidueChainMap[ChainID]):ResidueChainMap[ChainID].append(ResidueNumber)
-                except:
-                    ResidueChainMap[ChainID]=[]
-                    ResidueChainMap[ChainID].append(ResidueNumber)
 
                 #Atom Defined
                 id=int(_[6:11])
@@ -131,15 +178,10 @@ def LoadPDB(filename):
                 bfactor=float(_[60:66])
                 Element=_[76:78].strip()
                 Charge=_[78:80]
-
-                AllAtoms[id]=Atom(id,AtomName,Coordinates,Occupancy,bfactor,Element,Charge,ResidueNumber)
+                AllAtoms[id]=Atom(id,AtomName,Coordinates,Occupancy,bfactor,Element,Charge,AllResidues[ResidueNumber])
+                
                 #Atom added to the residue
                 AllResidues[ResidueNumber].__setitem__(id,AllAtoms[id])
-                try:
-                    AtomsResidueMap[ResidueNumber].append(id)
-                except:
-                    AtomsResidueMap[ResidueNumber]=[]
-                    AtomsResidueMap[ResidueNumber].append(id)
 
                 #What to do with these?
                 AlternateLocationIndicator=_[16]
@@ -179,7 +221,8 @@ def main():
     #mol=LoadPDB('1ov9.pdb')
 
     #Following will select 0th frame from NMR, will select chain A from it and will select 2nd Amino acid from it.
-    print mol[0]['A'][2].GetAtoms()
+    #print mol[0]['A'][2].GetCenterofGravity()
+    print mol[0]['A'][2].GetTipofAA().id,mol[0]['A'][2].GetCAlpha().id
     return True
 
 if(__name__=='__main__'):
