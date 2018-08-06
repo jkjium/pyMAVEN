@@ -119,13 +119,13 @@ class Model():
     def __getitem__(self,ChainID):
         return self.__AllChains[ChainID]
     
-    def GetAllChains(self):
+    def GetChains(self):
         for i in sorted(self.__AllChains.keys()):yield self.__AllChains[i]
 
-    def GetAllResidues(self):
+    def GetResidues(self):
         for i in sorted(self.__AllResidues.keys()):yield self.__AllResidues[i]
     
-    def GetAllAtoms(self):
+    def GetAtoms(self):
         for i in sorted(self.__AllAtoms.keys()):yield self.__AllAtoms[i]
     
     def GetChain(self,ChainID):
@@ -223,8 +223,8 @@ def main():
     #mol=LoadPDB('1ov9.pdb')
 
     #Following will select 0th frame from NMR, will select chain A from it and will select 2nd Amino acid from it.
-    #print mol[0]['A'][2].GetCenterofGravity()
-    print mol[0]['A'][2].GetTipofAA().id,mol[0]['A'][2].GetCAlpha().id
+    print mol[0]['A'].GetResidues()
+    #print mol[0]['A'][2].GetTipofAA().id,mol[0]['A'][2].GetCAlpha().id
     return True
 
 if(__name__=='__main__'):
