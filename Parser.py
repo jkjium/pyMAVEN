@@ -4,6 +4,7 @@ SourceofInformation: https://www.cgl.ucsf.edu/chimera/docs/UsersGuide/tutorials/
 '''
 import numpy
 import argparse
+import commlib as cb
 
 class Atom():
     def __init__(self,id,AtomName,Coordinates,Occupancy,bfactor,Element,Charge,parent):
@@ -22,7 +23,8 @@ class Atom():
         return self.__parent
 
     def CalcDist(self,another_atom):
-        return numpy.linalg.norm(self.Coordinates-another_atom.Coordinates)
+        #return numpy.linalg.norm(self.Coordinates-another_atom.Coordinates)
+        return cb.dist(self.Coordinates, another_atom.Coordinates)
 
     
 
