@@ -13,7 +13,7 @@ class Atom():
         self.AlternateLocationIndicator=None #remove it later
         self.__parent=parent
         self.Chain=None
-        self.Coordinates=Coordinates
+        self.__Coordinates=Coordinates
         self.Occupancy=Occupancy
         self.bfactor=bfactor
         self.SegmentIdentifier=None
@@ -21,10 +21,13 @@ class Atom():
 
     def GetParent(self):
         return self.__parent
+    
+    def GetCoordinates(self):
+      return self.__Coordinates
 
     def CalcDist(self,another_atom):
         #return numpy.linalg.norm(self.Coordinates-another_atom.Coordinates)
-        return cb.dist(self.Coordinates, another_atom.Coordinates)
+        return cb.dist(self.__Coordinates, another_atom.GetCoordinates())
 
     
 
@@ -228,4 +231,4 @@ def main():
     return True
 
 if(__name__=='__main__'):
-    main()
+  main()
